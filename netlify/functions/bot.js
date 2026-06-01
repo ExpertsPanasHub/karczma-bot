@@ -106,7 +106,7 @@ async function askNextProduct(chatId, s) {
   const bar = '▓'.repeat(Math.round(pct / 10)) + '░'.repeat(10 - Math.round(pct / 10));
   await sendMsg(chatId,
     `${s.cat}\n${bar} ${pct}%  (${done + 1}/${total})\n\n<b>${prod}</b>\n\nIle naliczono?`,
-    [['0'], ['0.5'], ['1'], ['2'], ['⏭ Pomiń'], ['↩️ Wróć do kategorii']]
+   [['0'], ['0.5'], ['1'], ['2'], ['⏭ Pomiń'], ['↩️ Wróć do kategorii'], ['🏠 Menu główne']]
   );
 }
 
@@ -114,7 +114,7 @@ async function handleMessage(chatId, text, userName) {
   const s = getSession(chatId);
   const managerChatId = process.env.MANAGER_CHAT_ID;
 
-  if (text === '/start') {
+ if (text === '/start' || text === '🏠 Menu główne') {
     sessions[chatId] = { step: 'dept', dept: null, cat: null, products: [], prodIdx: 0, results: {} };
     await sendMsg(chatId,
       `Cześć <b>${userName}</b>! 👋\n\nBot do inwentaryzacji <b>Karczma Did Panas</b>.\n\nWybierz swoje stanowisko:`,
