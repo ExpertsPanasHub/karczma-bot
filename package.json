@@ -1,0 +1,9 @@
+{
+  "name": "karczma-did-panas-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot do inwentaryzacji - Karczma Did Panas",
+  "dependencies": {
+    "google-auth-library": "^9.0.0",
+    "google-spreadsheet": "^4.1.1"
+  }
+}
