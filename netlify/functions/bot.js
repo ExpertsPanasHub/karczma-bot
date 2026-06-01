@@ -37,7 +37,7 @@ const sessions = {};
 
 function getSession(chatId) {
   if (!sessions[chatId]) {
-    sessions[chatId] = { step: 'start', dept: null, cat: null, products: [], prodIdx: 0, results: {} };
+    sessions[chatId] = { step: 'start', dept: null, cat: null, products: [], prodIdx: 0, results: {}, lastKey: null };
   }
   return sessions[chatId];
 }
@@ -109,9 +109,14 @@ async function askNextProduct(chatId, s) {
   const done = s.prodIdx;
   const pct = Math.round(done / total * 100);
   const bar = '▓'.repeat(Math.round(pct / 10)) + '░'.repeat(10 - Math.round(pct / 10));
+
+  const keyboard = [['0'], ['0.5'], ['1'], ['2'], ['⏭ Pomiń'], ['↩️ Wróć do kategorii']];
+  if (s.lastKey) keyboard.push(['✏️ Исправить последнее']);
+  keyboard.push(['🏠 Menu główne']);
+
   await sendMsg(chatId,
     `${s.cat}\n${bar} ${pct}%  (${done + 1}/${total})\n\n<b>${prod}</b>\n\nIle naliczono?`,
-    [['0'], ['0.5'], ['1'], ['2'], ['⏭ Pomiń'], ['↩️ Wróć do kategorii'], ['🏠 Menu główne']]
+    keyboard
   );
 }
 
@@ -120,7 +125,7 @@ async function handleMessage(chatId, text, userName) {
   const managerChatId = process.env.MANAGER_CHAT_ID;
 
   if (text === '/start' || text === '🏠 Menu główne') {
-    sessions[chatId] = { step: 'dept', dept: null, cat: null, products: [], prodIdx: 0, results: {} };
+    sessions[chatId] = { step: 'dept', dept: null, cat: null, products: [], prodIdx: 0, results: {}, lastKey: null };
     await sendMsg(chatId,
       `Cześć <b>${userName}</b>! 👋\n\nBot do inwentaryzacji <b>Karczma Did Panas</b>.\n\nWybierz swoje stanowisko:`,
       [['🍷 Bar i Sala'], ['🍽️ Kuchnia']]
@@ -139,6 +144,7 @@ async function handleMessage(chatId, text, userName) {
     }
     s.step = 'cat';
     s.results = {};
+    s.lastKey = null;
     await showCategoryMenu(chatId, s);
     return;
   }
@@ -178,6 +184,23 @@ async function handleMessage(chatId, text, userName) {
     return;
   }
 
+  if (text === '✏️ Исправить последнее') {
+    if (s.lastKey) {
+      const [cat, prod] = s.lastKey.split('|||');
+      const oldVal = s.results[s.lastKey];
+      delete s.results[s.lastKey];
+      s.prodIdx--;
+      s.lastKey = null;
+      await sendMsg(chatId,
+        `✏️ Исправляем:\n<b>${prod}</b>\nБыло: <b>${oldVal}</b>\n\nВведи правильное количество:`,
+        [['0'], ['0.5'], ['1'], ['2'], ['⏭ Pomiń'], ['↩️ Wróć do kategorii'], ['🏠 Menu główne']]
+      );
+    } else {
+      await sendMsg(chatId, '⚠️ Нечего исправлять.');
+    }
+    return;
+  }
+
   if (s.step === 'cat' || s.step === 'product') {
     const cats = Object.keys(PRODUCTS[s.dept] || {});
     const matchedCat = cats.find(c => text === c || text.includes(c.replace(/[^\w\s]/g, '').trim()));
@@ -200,7 +223,9 @@ async function handleMessage(chatId, text, userName) {
     }
     const num = parseFloat(text.replace(',', '.'));
     if (!isNaN(num) && num >= 0) {
-      s.results[`${s.cat}|||${s.products[s.prodIdx]}`] = num;
+      const key = `${s.cat}|||${s.products[s.prodIdx]}`;
+      s.results[key] = num;
+      s.lastKey = key;
       s.prodIdx++;
       await askNextProduct(chatId, s);
     } else {
