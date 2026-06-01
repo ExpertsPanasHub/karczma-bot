@@ -86,17 +86,22 @@ async function saveToSheets(dept, results, userName) {
   }
 }
 
+async function showCategoryMenu(chatId, s) {
+  const cats = Object.keys(PRODUCTS[s.dept]);
+  const rows = cats.map(c => [c]);
+  rows.push(['✅ Zakończ i wyślij raport']);
+  rows.push(['🏠 Menu główne']);
+  await sendMsg(chatId, `<b>${s.dept}</b> — wybierz kategorię:`, rows);
+}
+
 async function askNextProduct(chatId, s) {
   if (s.prodIdx >= s.products.length) {
     const done = Object.keys(s.results).filter(k => k.startsWith(s.cat + '|||')).length;
-    const cats = Object.keys(PRODUCTS[s.dept]);
-    const rows = cats.map(c => [c]);
-    rows.push(['✅ Zakończ i wyślij raport']);
     await sendMsg(chatId,
-      `✅ Kategoria <b>${s.cat}</b> gotowa!\nWpisano: <b>${done}</b> z ${s.products.length} pozycji.\n\nWybierz następną kategorię lub zakończ:`,
-      rows
+      `✅ Kategoria <b>${s.cat}</b> gotowa!\nWpisano: <b>${done}</b> z ${s.products.length} pozycji.\n\nWybierz następną kategorię lub zakończ:`
     );
     s.step = 'cat';
+    await showCategoryMenu(chatId, s);
     return;
   }
   const prod = s.products[s.prodIdx];
@@ -106,7 +111,7 @@ async function askNextProduct(chatId, s) {
   const bar = '▓'.repeat(Math.round(pct / 10)) + '░'.repeat(10 - Math.round(pct / 10));
   await sendMsg(chatId,
     `${s.cat}\n${bar} ${pct}%  (${done + 1}/${total})\n\n<b>${prod}</b>\n\nIle naliczono?`,
-    [['0'], ['0.5'], ['1'], ['2'], ['⏭ Pomiń'], ['↩️ Wróć do kategorii']]
+    [['0'], ['0.5'], ['1'], ['2'], ['⏭ Pomiń'], ['↩️ Wróć do kategorii'], ['🏠 Menu główne']]
   );
 }
 
@@ -114,7 +119,7 @@ async function handleMessage(chatId, text, userName) {
   const s = getSession(chatId);
   const managerChatId = process.env.MANAGER_CHAT_ID;
 
-  if (text === '/start') {
+  if (text === '/start' || text === '🏠 Menu główne') {
     sessions[chatId] = { step: 'dept', dept: null, cat: null, products: [], prodIdx: 0, results: {} };
     await sendMsg(chatId,
       `Cześć <b>${userName}</b>! 👋\n\nBot do inwentaryzacji <b>Karczma Did Panas</b>.\n\nWybierz swoje stanowisko:`,
@@ -134,13 +139,7 @@ async function handleMessage(chatId, text, userName) {
     }
     s.step = 'cat';
     s.results = {};
-    const cats = Object.keys(PRODUCTS[s.dept]);
-    const rows = cats.map(c => [c]);
-    rows.push(['✅ Zakończ i wyślij raport']);
-    await sendMsg(chatId,
-      `<b>${s.dept}</b> — wybierz kategorię:`,
-      rows
-    );
+    await showCategoryMenu(chatId, s);
     return;
   }
 
@@ -169,7 +168,7 @@ async function handleMessage(chatId, text, userName) {
     if (managerChatId && managerChatId !== String(chatId)) {
       await tg('sendMessage', { chat_id: managerChatId, text: report, parse_mode: 'HTML' });
     }
-    await sendMsg(chatId, 'Gotowe! Chcesz zacząć od nowa?', [['🔄 Nowa inwentaryzacja']]);
+    await sendMsg(chatId, 'Gotowe! Chcesz zacząć od nowa?', [['🔄 Nowa inwentaryzacja'], ['🏠 Menu główne']]);
     s.step = 'done';
     return;
   }
@@ -196,10 +195,7 @@ async function handleMessage(chatId, text, userName) {
     if (text === '⏭ Pomiń') { s.prodIdx++; await askNextProduct(chatId, s); return; }
     if (text === '↩️ Wróć do kategorii') {
       s.step = 'cat';
-      const cats = Object.keys(PRODUCTS[s.dept]);
-      const rows = cats.map(c => [c]);
-      rows.push(['✅ Zakończ i wyślij raport']);
-      await sendMsg(chatId, 'Wybierz kategorię:', rows);
+      await showCategoryMenu(chatId, s);
       return;
     }
     const num = parseFloat(text.replace(',', '.'));
@@ -210,7 +206,7 @@ async function handleMessage(chatId, text, userName) {
     } else {
       await sendMsg(chatId,
         `⚠️ Wpisz liczbę (np. <b>2</b> lub <b>1.5</b>)\n\n<b>${s.products[s.prodIdx]}</b> — ile?`,
-        [['0'], ['0.5'], ['1'], ['2'], ['⏭ Pomiń'], ['↩️ Wróć do kategorii']]
+        [['0'], ['0.5'], ['1'], ['2'], ['⏭ Pomiń'], ['↩️ Wróć do kategorii'], ['🏠 Menu główne']]
       );
     }
     return;
